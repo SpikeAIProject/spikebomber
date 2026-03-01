@@ -1,5 +1,5 @@
 {
-  "extends": "@spike-ai/config/tsconfig.nestjs",
+  "extends": "@spike-ai/config/tsconfig/nestjs",
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {

@@ -4,6 +4,8 @@
   "private": true,
   "exports": {
     "./eslint": "./eslint.js",
+    "./eslint.nextjs": "./eslint.nextjs.js",
+    "./eslint/nextjs": "./eslint.nextjs.js",
     "./tsconfig": "./tsconfig.json",
     "./tsconfig/*": "./tsconfig.*.json",
     "./prettier": "./prettier.js"

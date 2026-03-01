@@ -99,6 +99,7 @@ export class AuthService {
 
   private async generateTokens(userId: string, email: string, role: string, tenantId: string) {
     const payload = { sub: userId, email, role, tenantId };
+    const accessExpires = this.config.get<string>('JWT_ACCESS_EXPIRES', '15m');
 
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload),
@@ -108,11 +109,23 @@ export class AuthService {
       }),
     ]);
 
+    // Parse expires string (e.g. "15m" → 900 seconds)
+    const expiresIn = this.parseExpiresIn(accessExpires);
+
     return {
       accessToken,
       refreshToken,
-      expiresIn: 900, // 15 minutes in seconds
+      expiresIn,
     };
+  }
+
+  private parseExpiresIn(value: string): number {
+    const match = value.match(/^(\d+)([smhd])$/);
+    if (!match) return 900;
+    const amount = parseInt(match[1] ?? '15');
+    const unit = match[2];
+    const multipliers: Record<string, number> = { s: 1, m: 60, h: 3600, d: 86400 };
+    return amount * (multipliers[unit ?? 's'] ?? 1);
   }
 
   private async updateRefreshToken(userId: string, refreshToken: string) {

@@ -1,4 +1,5 @@
 import { Injectable, Logger, RequestTimeoutException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { GeminiProvider } from './providers/gemini.provider';
 import { VertexProvider } from './providers/vertex.provider';
 import { UsageService } from '../usage/usage.service';
@@ -6,29 +7,32 @@ import { GenerateDto } from './dto/generate.dto';
 import { ChatDto } from './dto/chat.dto';
 import { v4 as uuidv4 } from 'uuid';
 
-const MAX_RETRIES = 3;
-const TIMEOUT_MS = 30000;
-
 @Injectable()
 export class AiService {
   private readonly logger = new Logger(AiService.name);
+  private readonly maxRetries: number;
+  private readonly timeoutMs: number;
 
   constructor(
     private geminiProvider: GeminiProvider,
     private vertexProvider: VertexProvider,
     private usageService: UsageService,
-  ) {}
+    private config: ConfigService,
+  ) {
+    this.maxRetries = config.get<number>('AI_MAX_RETRIES', 3);
+    this.timeoutMs = config.get<number>('AI_TIMEOUT_MS', 30000);
+  }
 
   async generate(dto: GenerateDto, tenantId: string) {
     const startTime = Date.now();
     let attempt = 0;
 
-    while (attempt < MAX_RETRIES) {
+    while (attempt < this.maxRetries) {
       try {
         const result = await Promise.race([
           this.geminiProvider.generate(dto),
           new Promise((_, reject) =>
-            setTimeout(() => reject(new RequestTimeoutException('AI request timed out')), TIMEOUT_MS),
+            setTimeout(() => reject(new RequestTimeoutException('AI request timed out')), this.timeoutMs),
           ),
         ]) as { content: string; promptTokens: number; completionTokens: number };
 
