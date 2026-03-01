@@ -5,14 +5,14 @@ import {
   HttpCode,
   HttpStatus,
   UseGuards,
-  Request,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
-import { JwtRefreshGuard } from './guards/jwt-refresh.guard';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { CurrentUser } from './decorators/current-user.decorator';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -42,8 +42,9 @@ export class AuthController {
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'Logout (invalidate refresh token)' })
-  async logout(@Body() body: { userId: string }) {
-    return this.authService.logout(body.userId);
+  async logout(@CurrentUser() user: { id: string }) {
+    return this.authService.logout(user.id);
   }
 }

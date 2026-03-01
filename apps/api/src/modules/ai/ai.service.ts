@@ -61,6 +61,7 @@ export class AiService {
         await new Promise((r) => setTimeout(r, 1000 * attempt));
       }
     }
+    throw new Error('AI generate failed after max retries');
   }
 
   async chat(dto: ChatDto, tenantId: string) {
