@@ -1,0 +1,21 @@
+{
+  "name": "@spike-ai/config",
+  "version": "0.0.1",
+  "private": true,
+  "exports": {
+    "./eslint": "./eslint.js",
+    "./tsconfig": "./tsconfig.json",
+    "./tsconfig/*": "./tsconfig.*.json",
+    "./prettier": "./prettier.js"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^7.8.0",
+    "@typescript-eslint/parser": "^7.8.0",
+    "eslint": "^8.57.0",
+    "eslint-config-next": "^14.2.3",
+    "eslint-plugin-react": "^7.34.1",
+    "eslint-plugin-react-hooks": "^4.6.2",
+    "eslint-plugin-import": "^2.29.1",
+    "typescript": "^5.4.5"
+  }
+}
