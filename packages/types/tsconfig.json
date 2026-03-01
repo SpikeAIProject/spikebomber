@@ -1,0 +1,9 @@
+{
+  "extends": "@spike-ai/config/tsconfig",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "outDir": "./dist"
+  },
+  "include": ["src"]
+}
