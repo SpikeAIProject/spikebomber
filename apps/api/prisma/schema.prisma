@@ -1,0 +1,274 @@
+// This is your Prisma schema file
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users         User[]
+  subscriptions Subscription[]
+  apiKeys       ApiKey[]
+  usageLogs     UsageLog[]
+  prompts       Prompt[]
+  webhooks      Webhook[]
+  auditLogs     AuditLog[]
+
+  @@index([slug])
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String
+  passwordHash  String
+  role          UserRole  @default(USER)
+  tenantId      String
+  emailVerified Boolean   @default(false)
+  avatarUrl     String?
+  refreshToken  String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  apiKeys       ApiKey[]
+  usageLogs     UsageLog[]
+  auditLogs     AuditLog[]
+  adminActions  AdminAction[]
+
+  @@index([email])
+  @@index([tenantId])
+}
+
+model Plan {
+  id                String   @id @default(cuid())
+  name              String   @unique
+  tier              PlanTier @default(FREE)
+  monthlyPrice      Decimal  @default(0) @db.Decimal(10, 2)
+  yearlyPrice       Decimal  @default(0) @db.Decimal(10, 2)
+  requestsPerMonth  Int      @default(100)
+  tokensPerMonth    Int      @default(100000)
+  features          String[] @default([])
+  isActive          Boolean  @default(true)
+  stripeProductId   String?
+  stripePriceIdMonth String?
+  stripePriceIdYear  String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id                 String             @id @default(cuid())
+  tenantId           String
+  planId             String
+  status             SubscriptionStatus @default(INACTIVE)
+  currentPeriodStart DateTime
+  currentPeriodEnd   DateTime
+  cancelAtPeriodEnd  Boolean            @default(false)
+  stripeSubscriptionId String?          @unique
+  stripeCustomerId   String?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  plan    Plan     @relation(fields: [planId], references: [id])
+  invoices Invoice[]
+
+  @@index([tenantId])
+  @@index([status])
+}
+
+model ApiKey {
+  id          String    @id @default(cuid())
+  name        String
+  keyHash     String    @unique
+  prefix      String
+  tenantId    String
+  userId      String
+  isActive    Boolean   @default(true)
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user      User       @relation(fields: [userId], references: [id])
+  usageLogs UsageLog[]
+
+  @@index([keyHash])
+  @@index([tenantId])
+  @@index([userId])
+}
+
+model UsageLog {
+  id              String   @id @default(cuid())
+  tenantId        String
+  userId          String?
+  apiKeyId        String?
+  model           String
+  promptTokens    Int      @default(0)
+  completionTokens Int     @default(0)
+  totalTokens     Int      @default(0)
+  latencyMs       Int      @default(0)
+  status          String   @default("success")
+  endpoint        String?
+  createdAt       DateTime @default(now())
+
+  tenant Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User?   @relation(fields: [userId], references: [id])
+  apiKey ApiKey? @relation(fields: [apiKeyId], references: [id])
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([apiKeyId])
+  @@index([createdAt])
+}
+
+model Prompt {
+  id          String   @id @default(cuid())
+  tenantId    String
+  title       String?
+  content     String
+  model       String
+  response    String?
+  tokens      Int      @default(0)
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([createdAt])
+}
+
+model Payment {
+  id              String        @id @default(cuid())
+  invoiceId       String
+  amount          Decimal       @db.Decimal(10, 2)
+  currency        String        @default("usd")
+  status          PaymentStatus @default(PENDING)
+  stripePaymentId String?       @unique
+  createdAt       DateTime      @default(now())
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id])
+
+  @@index([invoiceId])
+}
+
+model Invoice {
+  id             String        @id @default(cuid())
+  subscriptionId String
+  amount         Decimal       @db.Decimal(10, 2)
+  currency       String        @default("usd")
+  status         InvoiceStatus @default(DRAFT)
+  dueDate        DateTime?
+  paidAt         DateTime?
+  stripeInvoiceId String?      @unique
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id])
+  payments     Payment[]
+
+  @@index([subscriptionId])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userId    String?
+  action    String
+  entity    String
+  entityId  String?
+  oldData   Json?
+  newData   Json?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User?  @relation(fields: [userId], references: [id])
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model AdminAction {
+  id          String   @id @default(cuid())
+  adminId     String
+  action      String
+  target      String
+  targetId    String?
+  description String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  admin User @relation(fields: [adminId], references: [id])
+
+  @@index([adminId])
+  @@index([createdAt])
+}
+
+model Webhook {
+  id        String        @id @default(cuid())
+  tenantId  String
+  url       String
+  events    String[]
+  secret    String
+  isActive  Boolean       @default(true)
+  lastError String?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+}
+
+enum UserRole {
+  USER
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum PlanTier {
+  FREE
+  STARTER
+  PRO
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELED
+  PAST_DUE
+  TRIALING
+  INACTIVE
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+}
+
+enum InvoiceStatus {
+  DRAFT
+  OPEN
+  PAID
+  VOID
+  UNCOLLECTIBLE
+}
