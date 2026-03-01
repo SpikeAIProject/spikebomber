@@ -224,7 +224,7 @@ export default function PlaygroundPage() {
               {['Write a REST API in TypeScript', 'Explain quantum computing', 'Debug this code'].map((prompt) => (
                 <button
                   key={prompt}
-                  onClick={() => onSubmit({ message: prompt })}
+                  onClick={() => handleSubmit(() => onSubmit({ message: prompt }))()}
                   className="px-3 py-1.5 rounded-full border border-border text-xs text-text-secondary hover:border-neon-blue hover:text-neon-blue transition-all"
                 >
                   {prompt}

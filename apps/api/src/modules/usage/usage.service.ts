@@ -30,7 +30,7 @@ export class UsageService {
 
   async log(input: LogUsageInput) {
     const costPerMillion = this.COST_PER_MILLION_TOKENS[input.model] ?? this.COST_PER_MILLION_TOKENS.default;
-    const cost = Math.ceil((input.totalTokens / 1_000_000) * costPerMillion);
+    const cost = Math.round((input.totalTokens / 1_000_000) * costPerMillion);
 
     try {
       await this.prisma.usageLog.create({

@@ -26,7 +26,7 @@ export function AdminSidebar() {
   return (
     <aside className="w-64 bg-[#12121A] border-r border-[#2A2A3E] flex flex-col flex-shrink-0">
       <div className="h-16 flex items-center px-6 border-b border-[#2A2A3E]">
-        <span className="text-lg font-bold" style={{ background: 'linear-gradient(135deg, #00D4FF, #7B2FFF)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+        <span className="text-lg font-bold neon-text">
           SPIKE AI
         </span>
         <span className="ml-2 text-xs text-text-muted bg-[#1A1A27] border border-[#2A2A3E] rounded px-1.5 py-0.5">
