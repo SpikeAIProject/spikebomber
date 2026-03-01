@@ -1,0 +1,334 @@
+// =============================================================================
+// SPIKE AI - Prisma Schema
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =============================================================================
+// Enums
+// =============================================================================
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  USER
+  API_CONSUMER
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  INACTIVE
+  PAST_DUE
+  CANCELED
+  TRIALING
+  PAUSED
+}
+
+enum PlanTier {
+  FREE
+  STARTER
+  PRO
+  ENTERPRISE
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+  CANCELED
+}
+
+enum APIKeyStatus {
+  ACTIVE
+  REVOKED
+  EXPIRED
+}
+
+enum AIModel {
+  gemini_1_5_pro    @map("gemini-1.5-pro")
+  gemini_1_5_flash  @map("gemini-1.5-flash")
+  gemini_pro_vision @map("gemini-pro-vision")
+  text_bison        @map("text-bison")
+  chat_bison        @map("chat-bison")
+}
+
+enum AuditAction {
+  LOGIN
+  LOGOUT
+  REGISTER
+  PASSWORD_CHANGE
+  API_KEY_CREATE
+  API_KEY_REVOKE
+  SUBSCRIPTION_CREATE
+  SUBSCRIPTION_CANCEL
+  PLAN_CHANGE
+  ADMIN_USER_UPDATE
+  ADMIN_USER_DELETE
+  AI_GENERATE
+}
+
+// =============================================================================
+// Models
+// =============================================================================
+
+model Tenant {
+  id           String   @id @default(cuid())
+  name         String
+  slug         String   @unique
+  domain       String?  @unique
+  logoUrl      String?  @map("logo_url")
+  primaryColor String?  @map("primary_color")
+  settings     Json     @default("{}")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  users User[]
+
+  @@map("tenants")
+}
+
+model User {
+  id               String    @id @default(cuid())
+  email            String    @unique
+  name             String
+  passwordHash     String?   @map("password_hash")
+  avatarUrl        String?   @map("avatar_url")
+  role             UserRole  @default(USER)
+  tenantId         String?   @map("tenant_id")
+  stripeCustomerId String?   @unique @map("stripe_customer_id")
+  isActive         Boolean   @default(true) @map("is_active")
+  isEmailVerified  Boolean   @default(false) @map("is_email_verified")
+  lastLoginAt      DateTime? @map("last_login_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  tenant       Tenant?      @relation(fields: [tenantId], references: [id])
+  subscription Subscription?
+  apiKeys      APIKey[]
+  usageLogs    UsageLog[]
+  prompts      Prompt[]
+  payments     Payment[]
+  invoices     Invoice[]
+  auditLogs    AuditLog[]
+  webhooks     Webhook[]
+
+  @@index([email])
+  @@index([tenantId])
+  @@map("users")
+}
+
+model Plan {
+  id                   String   @id @default(cuid())
+  name                 String   @unique
+  tier                 PlanTier
+  description          String
+  monthlyPrice         Int      @map("monthly_price") // in cents
+  annualPrice          Int      @map("annual_price")  // in cents
+  tokenLimit           Int      @map("token_limit")
+  requestLimit         Int      @map("request_limit")
+  modelAccess          String[] @map("model_access")
+  features             String[]
+  stripePriceMonthlyId String?  @unique @map("stripe_price_monthly_id")
+  stripePriceAnnualId  String?  @unique @map("stripe_price_annual_id")
+  isActive             Boolean  @default(true) @map("is_active")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  subscriptions Subscription[]
+
+  @@map("plans")
+}
+
+model Subscription {
+  id                   String             @id @default(cuid())
+  userId               String             @unique @map("user_id")
+  planId               String             @map("plan_id")
+  status               SubscriptionStatus @default(ACTIVE)
+  stripeSubscriptionId String?            @unique @map("stripe_subscription_id")
+  stripeCustomerId     String?            @map("stripe_customer_id")
+  currentPeriodStart   DateTime           @map("current_period_start")
+  currentPeriodEnd     DateTime           @map("current_period_end")
+  cancelAtPeriodEnd    Boolean            @default(false) @map("cancel_at_period_end")
+  canceledAt           DateTime?          @map("canceled_at")
+  trialStart           DateTime?          @map("trial_start")
+  trialEnd             DateTime?          @map("trial_end")
+  tokensUsed           Int                @default(0) @map("tokens_used")
+  requestsUsed         Int                @default(0) @map("requests_used")
+  createdAt            DateTime           @default(now()) @map("created_at")
+  updatedAt            DateTime           @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan Plan @relation(fields: [planId], references: [id])
+
+  @@index([userId])
+  @@index([planId])
+  @@map("subscriptions")
+}
+
+model APIKey {
+  id          String       @id @default(cuid())
+  userId      String       @map("user_id")
+  name        String
+  keyPrefix   String       @map("key_prefix")
+  keyHash     String       @unique @map("key_hash")
+  status      APIKeyStatus @default(ACTIVE)
+  lastUsedAt  DateTime?    @map("last_used_at")
+  expiresAt   DateTime?    @map("expires_at")
+  permissions String[]
+  metadata    Json         @default("{}")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  usageLogs UsageLog[]
+
+  @@index([userId])
+  @@index([keyHash])
+  @@map("api_keys")
+}
+
+model UsageLog {
+  id               String   @id @default(cuid())
+  userId           String   @map("user_id")
+  apiKeyId         String?  @map("api_key_id")
+  model            AIModel
+  promptTokens     Int      @map("prompt_tokens")
+  completionTokens Int      @map("completion_tokens")
+  totalTokens      Int      @map("total_tokens")
+  latencyMs        Int      @map("latency_ms")
+  cost             Int      @default(0) // in cents
+  success          Boolean  @default(true)
+  errorCode        String?  @map("error_code")
+  metadata         Json     @default("{}")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  apiKey APIKey? @relation(fields: [apiKeyId], references: [id])
+
+  @@index([userId])
+  @@index([createdAt])
+  @@index([model])
+  @@map("usage_logs")
+}
+
+model Prompt {
+  id         String   @id @default(cuid())
+  userId     String   @map("user_id")
+  title      String?
+  content    String
+  response   String
+  model      AIModel
+  tokens     Int      @default(0)
+  isFavorite Boolean  @default(false) @map("is_favorite")
+  tags       String[]
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("prompts")
+}
+
+model Payment {
+  id                   String        @id @default(cuid())
+  userId               String        @map("user_id")
+  subscriptionId       String?       @map("subscription_id")
+  stripePaymentIntentId String       @unique @map("stripe_payment_intent_id")
+  stripeInvoiceId      String?       @map("stripe_invoice_id")
+  amount               Int           // in cents
+  currency             String        @default("usd")
+  status               PaymentStatus @default(PENDING)
+  description          String?
+  metadata             Json          @default("{}")
+  createdAt            DateTime      @default(now()) @map("created_at")
+  updatedAt            DateTime      @updatedAt @map("updated_at")
+
+  user     User      @relation(fields: [userId], references: [id])
+  invoices Invoice[]
+
+  @@index([userId])
+  @@map("payments")
+}
+
+model Invoice {
+  id              String   @id @default(cuid())
+  userId          String   @map("user_id")
+  paymentId       String?  @map("payment_id")
+  stripeInvoiceId String   @unique @map("stripe_invoice_id")
+  invoiceNumber   String   @unique @map("invoice_number")
+  amount          Int      // in cents
+  tax             Int      @default(0) // in cents
+  total           Int      // in cents
+  currency        String   @default("usd")
+  status          String   @default("open")
+  pdfUrl          String?  @map("pdf_url")
+  dueDate         DateTime? @map("due_date")
+  paidAt          DateTime? @map("paid_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  user    User     @relation(fields: [userId], references: [id])
+  payment Payment? @relation(fields: [paymentId], references: [id])
+
+  @@index([userId])
+  @@map("invoices")
+}
+
+model AuditLog {
+  id         String      @id @default(cuid())
+  userId     String?     @map("user_id")
+  action     AuditAction
+  resource   String
+  resourceId String?     @map("resource_id")
+  ipAddress  String?     @map("ip_address")
+  userAgent  String?     @map("user_agent")
+  details    Json        @default("{}")
+  createdAt  DateTime    @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model AdminAction {
+  id           String   @id @default(cuid())
+  adminId      String   @map("admin_id")
+  action       String
+  targetUserId String?  @map("target_user_id")
+  details      Json     @default("{}")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([adminId])
+  @@map("admin_actions")
+}
+
+model Webhook {
+  id              String   @id @default(cuid())
+  userId          String   @map("user_id")
+  url             String
+  events          String[]
+  secret          String
+  isActive        Boolean  @default(true) @map("is_active")
+  lastDeliveredAt DateTime? @map("last_delivered_at")
+  failureCount    Int      @default(0) @map("failure_count")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("webhooks")
+}
