@@ -1,0 +1,79 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 225 17% 5%;
+    --foreground: 230 30% 93%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-text-primary;
+    font-feature-settings: 'rlig' 1, 'calt' 1;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-background-secondary;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-border rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-border-light;
+  }
+}
+
+@layer components {
+  .glass-card {
+    @apply backdrop-blur-md bg-white/5 border border-white/10 rounded-xl shadow-glass;
+  }
+
+  .neon-text {
+    @apply text-transparent bg-clip-text bg-gradient-neon;
+  }
+
+  .neon-border {
+    @apply border border-neon-blue/50 shadow-neon-blue;
+  }
+
+  .glow-blue {
+    @apply shadow-neon-blue;
+    animation: glow-pulse 2s ease-in-out infinite alternate;
+  }
+
+  .hero-grid-bg {
+    background-image: linear-gradient(rgba(0,212,255,0.04) 1px, transparent 1px),
+                      linear-gradient(90deg, rgba(0,212,255,0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+
+  .gradient-border {
+    position: relative;
+    background: linear-gradient(#12121A, #12121A) padding-box,
+                linear-gradient(135deg, #00D4FF, #7B2FFF) border-box;
+    border: 1px solid transparent;
+  }
+}
+
+@layer utilities {
+  .animate-glow {
+    animation: glow-pulse 2s ease-in-out infinite alternate;
+  }
+}
